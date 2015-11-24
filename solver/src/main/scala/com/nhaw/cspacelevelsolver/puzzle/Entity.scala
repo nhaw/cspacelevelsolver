@@ -19,7 +19,7 @@ abstract class Entity(val initialColor: Color, val initialEnabled: Boolean) {
 
   override def toString = s"Entity($id,$name)"
   override def equals(o: Any) = o match {
-    case that: Player => that.id == id
+    case that: Entity => that.id == id
     case _ => false
   }
   override def hashCode = id.hashCode

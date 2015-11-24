@@ -4,7 +4,7 @@
 
 package com.nhaw.cspacelevelsolver.color
 
-class Color(val name: String, val r: Float, val g: Float, val b: Float) {
+class Color private[color] (val name: String, val r: Float, val g: Float, val b: Float) {
 
   def interactsWith(c: Color): Boolean = (r > 0 && c.r > 0) || (g > 0 && c.g > 0) || (b > 0 && c.b > 0)
 
@@ -12,6 +12,11 @@ class Color(val name: String, val r: Float, val g: Float, val b: Float) {
   def !~(c: Color) = !interactsWith(c)
 
   lazy val interactions = Color.getInteractions(this)
+
+  @inline def toHex = {
+    def toByte(v: Float) = f"${math.min(math.max(v*255, 0), 255).toByte}%02x"
+    s"#${toByte(r)}${toByte(g)}${toByte(b)}"
+  }
 
   override def toString = name
 }

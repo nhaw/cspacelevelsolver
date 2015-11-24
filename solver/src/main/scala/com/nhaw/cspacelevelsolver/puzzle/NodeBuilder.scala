@@ -5,14 +5,14 @@
 package com.nhaw.cspacelevelsolver.puzzle
 
 import com.nhaw.cspacelevelsolver.color._
-
 import java.util.concurrent.atomic.AtomicInteger
 
 import collection._
-
 import language.implicitConversions
 
-case class NodeBuilderSequence(private[puzzle] val elements: Seq[NodeBuilder]) {
+class IllegalPuzzleStructure(what: String) extends RuntimeException(what)
+
+case class NodeBuilderSequence(elements: Seq[NodeBuilder]) {
 
   /**
    * Join back to one common node
@@ -29,12 +29,13 @@ case class NodeBuilderSequence(private[puzzle] val elements: Seq[NodeBuilder]) {
 
 class NodeBuilder(val reqs: Seq[Requirement]) {
 
-  implicit def toNodeBuilderSeq(nbs: Seq[NodeBuilder]): NodeBuilderSequence = NodeBuilderSequence(nbs)
-
   val id = NodeBuilder.nextId.getAndIncrement()
 
   val from = mutable.ArrayBuffer.empty[NodeBuilder]
   val to = mutable.ArrayBuffer.empty[NodeBuilder]
+
+  val contents = mutable.ListBuffer[Color]()
+  val switches = mutable.ListBuffer[Switch]()
 
   private[this] var _isStart: Boolean = false
   def isStart = _isStart
@@ -43,12 +44,12 @@ class NodeBuilder(val reqs: Seq[Requirement]) {
   def isEnd = _isEnd
   def setEnd() = {_isEnd = true; this }
 
-  // TODO: Implement bi-direcitonal traversal (typical) so that the player can go forward and backward. Would result in infinite loop now.
-  // From a com.nhaw.cspacelevelsolver.solver perspective, going backward is only beneficial if new inventory has been picked up or state has been
-  // changed in some way that going backward will allow access to previously closed paths. To implement this in solving,
-  // forward traversal should be required in recursion until new inventory is acquired or state is otherwised changed
-  // (e.g. point-reach trigger, switch thrown, etc.)
-  //def <<>> (nb: NodeBuilder) = { addTo(nb); nb.addTo(this); nb }
+  // Note that from a com.nhaw.cspacelevelsolver.solver perspective, going backward is only beneficial if new inventory
+  // has been picked up or state has been changed in some way that going backward will allow access to previously closed
+  // paths. To implement this in solving, forward traversal should be required in recursion until new inventory is
+  // acquired or state is otherwise changed (e.g. point-reach trigger, switch thrown, etc.).
+  def <<>> (nb: NodeBuilder) = { addTo(nb); nb.addTo(this); nb }
+  def <<>* (nbs: NodeBuilderSequence) = { nbs.elements.foreach { nb => addTo(nb); nb.addTo(this); }; nbs }
 
   def >>(nb: NodeBuilder) = { addTo(nb); nb }
   def >*(nbs: Seq[NodeBuilder]): NodeBuilderSequence = { nbs.elements.foreach(addTo); nbs }
@@ -56,20 +57,37 @@ class NodeBuilder(val reqs: Seq[Requirement]) {
   def >>(req: Requirement) = { val nb = NodeBuilder(req); addTo(nb); nb }
   def >>(reqs: Seq[Requirement]) = { val nb = NodeBuilder(reqs); addTo(nb); nb }
 
-  val contents = mutable.ListBuffer[Color]()
   def >>(color: Color) = { contents += color; this }
+  def >>(switch: Switch) = { switches += switch; this }
+
+  class RequirementSeq(val seq: Seq[Requirement])
+  implicit def toRequirementSeq(seq: Seq[Requirement]):RequirementSeq = new RequirementSeq(seq)
+
+  def apply: PartialFunction[Any,NodeBuilder] = {
+    case nb: NodeBuilder => this >> nb
+    case req: Requirement => this >> req
+    case reqs: RequirementSeq => this >> reqs.seq
+    case color: Color => this >> color
+    case switch: Switch => this >> switch
+    case other => throw new IllegalArgumentException(s"Does not know how to apply a ${other} or this type wouldn't produce a single NodeBuilder")
+  }
+
+  def >>[T](iter: Iterable[T]) = {
+    iter.foldLeft[NodeBuilder](this)(_.apply(_))
+    this
+  }
 
   //def >>(switch: Activator) = {}
 
   private[puzzle] def addTo(n: NodeBuilder) {
     assert(n != this)
-    assert(!to.contains(n))
+    if (to.contains(n)) { throw new IllegalPuzzleStructure(s"Node ${this.toString} already points to ${to.toString}") }
     to.append(n)
     n.addFrom(this)
   }
   private[puzzle] def addFrom(n: NodeBuilder) {
     assert(n != this)
-    assert(!from.contains(n))
+    if (from.contains(n)) { throw new IllegalPuzzleStructure(s"Node ${this.toString} already points to ${from.toString}") }
     from.append(n)
   }
 
@@ -89,4 +107,7 @@ object NodeBuilder {
   def apply() = new NodeBuilder(Seq[Requirement]())
   def apply(reqs: Seq[Requirement]) = new NodeBuilder(reqs)
   def apply(req: Requirement) = new NodeBuilder(Seq[Requirement](req))
+
+  implicit def seqToNodeBuilderSeq(nbs: Seq[NodeBuilder]): NodeBuilderSequence = NodeBuilderSequence(nbs)
+  implicit def listToNodeBuilderSeq(nbs: List[NodeBuilder]): NodeBuilderSequence = NodeBuilderSequence(nbs)
 }

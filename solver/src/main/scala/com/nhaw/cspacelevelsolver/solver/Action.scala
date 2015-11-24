@@ -1,14 +1,8 @@
 package com.nhaw.cspacelevelsolver.solver
 
-import java.io.PrintStream
-
 import com.nhaw.cspacelevelsolver.color.Color
 import com.nhaw.cspacelevelsolver.puzzle.{Entity, PuzzleState}
-
-import scala.collection._
-
-import _root_.scala.collection.immutable.Seq
-
+import collection._
 
 /**
  * Action for progressing through a com.nhaw.cspacelevelsolver.color.puzzle. e.g. use an com.nhaw.cspacelevelsolver.color on an entity
@@ -19,15 +13,39 @@ trait Action {
 
 case class RootAction() extends Action {
   def resultState(st: PuzzleState) = ???
+
+  override def hashCode: Int = RootAction.hashCode ^ 1
+
+  override def equals(other: Any): Boolean = other match {
+    case other: RootAction => true
+    case _ => false
+  }
 }
 
 case class EndAction() extends Action {
   def resultState(st: PuzzleState) = ???
+
+  override def hashCode: Int = RootAction.hashCode ^ 1
+
+  override def equals(other: Any): Boolean = other match {
+    case other: EndAction=> true
+    case _ => false
+  }
 }
 
 case class NoAction() extends Action {
   def resultState(st: PuzzleState) = st
+
+  override def hashCode: Int = RootAction.hashCode ^ 1
+
+  override def equals(other: Any): Boolean = other match {
+    case other: NoAction => true
+    case _ => false
+  }
 }
+
+// TODO: None of these actions explicitly list pickups
+// TODO: None of these actions refer back to the node they occur on (which would show pickups/switches and be generally useful for display - especially with backtracking solutions)
 
 case class ColorChangeAction(color: Color, ent: Entity) extends Action {
   def resultState(st: PuzzleState) = {
@@ -43,30 +61,45 @@ case class ColorChangeAction(color: Color, ent: Entity) extends Action {
           false
         }
       }
-      }
     }
-    new PuzzleState(newInv, st.world + (ent -> st.world(ent).withColor(color) ))
+  }
+  new PuzzleState(newInv, st.world + (ent -> st.world(ent).withColor(color) ))
+  }
+
+  override def hashCode: Int =  color.toString.hashCode ^ ent.id.hashCode
+
+  override def equals(other: Any): Boolean = other match {
+    case other: ColorChangeAction => color == other.color && ent.id == other.ent.id
+    case _ => false
   }
 }
 
-case class ActionTreeNode(action: Action, paths: Seq[ActionTreeNode]) {
-  def display(o: PrintStream) {
-    _display(o, this, 0)
+object CompoundColorChangeAction {
+  def apply() = new CompoundColorChangeAction(Nil, immutable.HashSet[Entity]())
+}
+
+case class CompoundColorChangeAction(actions: List[ColorChangeAction], private val entitiesAffected: immutable.HashSet[Entity]) extends Action {
+
+  def resultState(st: PuzzleState) = {
+    actions.foldLeft(st){ case (accState,action) => action.resultState(st) }
   }
 
-  private[this] def _display(o: PrintStream, atn: ActionTreeNode, indent: Int) {
-    o.println(" "*indent + atn.action.toString + ":")
-    atn.paths.foreach(_display(o, _, indent+2))
+  def + (newAction: ColorChangeAction) = {
+    assert(!entitiesAffected.contains(newAction.ent))
+    CompoundColorChangeAction(newAction :: actions, entitiesAffected + newAction.ent)
   }
 
-  def solutions: Int = action match {
-    case a: EndAction => 1
-    case a => paths.foldLeft(0)((sum:Int,n:ActionTreeNode) => sum + n.solutions)
-  }
+  def contains(ent: Entity) = entitiesAffected.contains(ent)
 
-  /**
-   * @note should not need to be recursive if no incomplete paths are generated in the tree
-   * @return Does this tree solve the com.nhaw.cspacelevelsolver.color.puzzle
-   */
-  def solves: Boolean = solutions > 0
+  override def hashCode: Int = if (actions.isEmpty) CompoundColorChangeAction.hashCode else actions.foldLeft[Int](0){ (agg:Int, act:ColorChangeAction) => agg ^ act.hashCode }
+
+  override def equals(other: Any): Boolean = {
+    other match {
+      case other: ColorChangeAction => actions.size == 1 && actions.head.equals(other)
+      case other: CompoundColorChangeAction =>
+        actions.size == other.actions.size &&
+        actions.sortBy(_.ent.id).zip(other.actions.sortBy(_.ent.id)).foldLeft(true) { case (agg: Boolean, (a: ColorChangeAction, b: ColorChangeAction)) => agg && (a equals b) }
+      case _ => false
+    }
+  }
 }

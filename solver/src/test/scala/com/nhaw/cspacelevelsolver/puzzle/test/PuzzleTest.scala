@@ -46,7 +46,7 @@ class PuzzleTest extends FunSpec with Matchers with GivenWhenThen {
     }
   }
 
-  describe("A simple puzzles") {
+  describe("A simple puzzle") {
     Then("can be constructed")
     val puzzle = Puzzle(test1, "SimplePuzzle")
     Then("can be printed")

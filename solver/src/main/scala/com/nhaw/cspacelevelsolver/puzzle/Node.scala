@@ -4,6 +4,8 @@
 
 package com.nhaw.cspacelevelsolver.puzzle
 
+import java.io.{PrintStream, OutputStream}
+
 import com.nhaw.cspacelevelsolver.color.Color
 
 import collection._
@@ -33,26 +35,27 @@ object Node {
   }
 
   def findStart(n:Node): Option[StartNode] = {
-    var s:Option[StartNode] = None
-    walk(n, _ match {
-      case x: StartNode => s = Some(x); false
-      case _ => true
-    })
+    var s: Option[StartNode] = None
+    walk(n, { case x: StartNode => s = Some(x); false
+              case _ => true
+            }
+        )
     s
   }
 
   def findEnds(n:Node): immutable.List[EndNode] = {
     val endNodes = mutable.ListBuffer[EndNode]()
-    walk(n, _ match {
-      case x: EndNode => endNodes += x; true
-      case _ => true
-    })
+    walk(n, { case x: EndNode => endNodes += x; true
+              case _ => true
+            }
+        )
     endNodes.toList
   }
 
   def print(n:Node) { walk(n, x => {println(x); true}) }
 
   def build(nb:NodeBuilder) = { nb.make }
+  def build(nbs:NodeBuilderSequence) = { assert(nbs.elements.nonEmpty); nbs.elements.head.make }
 }
 
 class Node(nb: NodeBuilder) {
@@ -63,6 +66,7 @@ class Node(nb: NodeBuilder) {
   val to: Seq[Node] = nb.to.map(_.make)
   val reqs: Seq[Requirement] = nb.reqs
   val contents = nb.contents.toList
+  val switches = nb.switches.toList
 
   def nodeType: String = "normal"
 
@@ -89,40 +93,6 @@ class StartNode(nb: NodeBuilder) extends Node(nb) {
 }
 class EndNode(nb: NodeBuilder) extends Node(nb) {
   override def nodeType = "end"
-}
-
-case class PuzzleState(inventory:immutable.Seq[Color], world:Requirement.EntityStates)
-
-object Puzzle {
-  def apply(anyNode: Node, name: String) = new Puzzle(anyNode, name)
-}
-class Puzzle(anyNode: Node, val name: String) {
-  val startNode = Node.findStart(anyNode)
-  val endNodes = Node.findEnds(anyNode)
-  val valid = startNode.isDefined && endNodes.nonEmpty
-  val (entities: immutable.List[Entity], size) = {
-    var entitiesSet = immutable.Set[Entity]()
-    var nodeCount = 0
-    Node.walk(anyNode,
-      n => {
-        nodeCount+=1
-        n.reqs.foreach(_.subjects.foreach(entitiesSet += _))
-        true
-      } )
-    (entitiesSet.toList, nodeCount)
-  }
-  val players = entities.collect{case (e: Player) => e.asInstanceOf[Player]}.toSet
-  val initialInventory: immutable.Seq[Color] = immutable.Seq[Color]()
-  val initialColors: Requirement.EntityStates = entities.map{e => e -> e.initialState}.toMap
-  val initialState: PuzzleState = new PuzzleState(initialInventory, initialColors)
-
-  def assertValid() {
-    if (!startNode.isDefined) throw new IllegalArgumentException("No start node found")
-    if (endNodes.isEmpty) throw new IllegalArgumentException("No end nodes found")
-    assert(valid, "Invalid for unlisted reason")
-  }
-
-  override def toString = s"Puzzle(nodes:$size ents:${entities.size} players:${players.size}})"
 }
 
 object Printer extends App {
