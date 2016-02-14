@@ -1,18 +1,20 @@
 package com.nhaw.cspacelevelsolver.solver
 
+import com.nhaw.cspacelevelsolver.puzzle.Node
+
 import scala.collection.Iterator
 import java.io.PrintStream
 
 import scala.collection._
 
 
-case class ActionTreeNode(action: Action, paths: Seq[ActionTreeNode]) {
+case class ActionTreeNode(action: Action, node: Node, paths: Seq[ActionTreeNode]) {
   def display(o: PrintStream) {
     _display(o, this, 0)
   }
 
   private[this] def _display(o: PrintStream, atn: ActionTreeNode, indent: Int) {
-    o.println(" "*indent + atn.action.toString + ":")
+    o.println(" "*indent + atn.action.toString + " -> n" + atn.node.id  + ":")
     atn.paths.foreach(_display(o, _, indent+2))
   }
 

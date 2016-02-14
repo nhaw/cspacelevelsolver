@@ -28,7 +28,7 @@ case class EndAction() extends Action {
   override def hashCode: Int = RootAction.hashCode ^ 1
 
   override def equals(other: Any): Boolean = other match {
-    case other: EndAction=> true
+    case other: EndAction => true
     case _ => false
   }
 }
@@ -40,6 +40,17 @@ case class NoAction() extends Action {
 
   override def equals(other: Any): Boolean = other match {
     case other: NoAction => true
+    case _ => false
+  }
+}
+
+case class PickupAction(item: Color) extends Action {
+  def resultState(st: PuzzleState) = PuzzleState(st.inventory ++ Seq(item), st.world)
+
+  override def hashCode: Int = RootAction.hashCode ^ 1
+
+  override def equals(other: Any): Boolean = other match {
+    case other: PickupAction => item == other.item
     case _ => false
   }
 }

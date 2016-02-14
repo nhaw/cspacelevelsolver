@@ -13,9 +13,14 @@ class Color private[color] (val name: String, val r: Float, val g: Float, val b:
 
   lazy val interactions = Color.getInteractions(this)
 
+  private[this] def toByte(v: Float) = f"${math.min(math.max(v*255, 0), 255).toByte}%02x"
+
   @inline def toHex = {
-    def toByte(v: Float) = f"${math.min(math.max(v*255, 0), 255).toByte}%02x"
     s"#${toByte(r)}${toByte(g)}${toByte(b)}"
+  }
+
+  def lightenToHex = {
+    s"#${toByte(r+0.3f)}${toByte(g+0.3f)}${toByte(b+0.3f)}"
   }
 
   override def toString = name

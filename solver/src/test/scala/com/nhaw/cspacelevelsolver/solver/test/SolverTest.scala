@@ -4,13 +4,15 @@
 
 package com.nhaw.cspacelevelsolver.puzzle.test
 
-import java.io.{ByteArrayOutputStream, PrintWriter, FileOutputStream}
+import java.io.{FileOutputStream, PrintStream, File, ByteArrayOutputStream}
 
 import com.nhaw.cspacelevelsolver.color._
 import com.nhaw.cspacelevelsolver.puzzle._
 import com.nhaw.cspacelevelsolver.solver._
+
 import org.scalatest._
 
+import scala.sys.process._
 import scala.language.implicitConversions
 
 class ActionTest extends FunSpec with Matchers {
@@ -168,9 +170,9 @@ class SolverTest(factory: Puzzle => Solver) extends FunSpec with Matchers with G
         assert(solutionTree.numSolutions === 1)
       }
       it("solution tree can be displayed") {
-        //Console.withOut(new ByteArrayOutputStream()) {
+        Console.withOut(new ByteArrayOutputStream()) {
           solutionTree.display(Console.out)
-        //}
+        }
       }
 
       println("DONE E")
@@ -201,10 +203,11 @@ class SolverTest(factory: Puzzle => Solver) extends FunSpec with Matchers with G
         evt match {
           case NodeReached(node, depth) =>
             println(s"TwoActionPuzzle solver reached: $node ($depth)")
-          case PuzzleSolved() =>
+          case PuzzleSolved =>
             println(s"TwoActionPuzzle solver          SOLVED!")
-          case DeadEndReached() =>
+          case DeadEndReached =>
             println(s"TwoActionPuzzle solver          DEAD END")
+          case _ =>
         }
       }
       val solutionTree = factory(puzzle).solve()
@@ -213,9 +216,9 @@ class SolverTest(factory: Puzzle => Solver) extends FunSpec with Matchers with G
       }
       it("solution tree can be displayed") {
         //Console.withOut(new ByteArrayOutputStream()) {
-          //println("2-solution puzzle solutions")
-          //solutionTree.display(Console.out)
-        //  }
+          Console.out.println("2-solution puzzle solution")
+          solutionTree.display(Console.out)
+        //}
       }
 
       println("DONE G")
@@ -226,17 +229,39 @@ class SolverTest(factory: Puzzle => Solver) extends FunSpec with Matchers with G
       val forkA = NodeBuilder(ReqInteraction(player, Entity.PLATFORM(Color.GREEN))) >> Color.BLUE
       val forkB = NodeBuilder(ReqInteraction(player, Entity.PLATFORM(Color.BLUE))).setEnd()
       val definition =
-        NodeBuilder(ReqInteraction(player, Entity.PLATFORM(Color.GREEN))).setStart() >* (forkA :: forkB :: Nil)
+        NodeBuilder(ReqInteraction(player, Entity.PLATFORM(Color.GREEN))).setStart() <<>* (forkA :: forkB :: Nil)
       val topo = Node.build(definition)
-      val puzzle = Puzzle(topo, "TrivialPuzzle")
-      val solutionTree = factory(puzzle).solve()
+      val puzzle = Puzzle(topo, "BackTrackingPuzzle")
+      def tracer(evt: SolverEvent) {
+        evt match {
+          case NodeReached(node, depth) =>
+            Console.out.println(s"BackTrack puzzle solver reached: $node ($depth)")
+          case PuzzleSolved =>
+            Console.out.println(s"BackTrack puzzle solver          SOLVED!")
+          case DeadEndReached =>
+            Console.out.println(s"BackTrack puzzle solver          DEAD END")
+          case InventoryPickup(color) =>
+            Console.out.println(s"BackTrack puzzle solver pickup:  $color")
+          case TransitionImpossible(node, reason) =>
+            Console.out.println(s"BackTrack puzzle solver no transition to: $node $reason")
+        }
+      }
+      val solutionTree = factory(puzzle).solve(tracer)
       it("can be solved with one solution") {
         assert(solutionTree.numSolutions === 1)
       }
+      val dotfname = File.createTempFile("foo",".dot")
+      val imgfname = File.createTempFile("foo",".png")
+      it(s"can be displayed as a graph: $imgfname") {
+        puzzle.writeDot(new PrintStream(new FileOutputStream(dotfname)))
+        assert(s"dot -Tpng ${dotfname.toString} -o ${imgfname.toString}".! == 0, "dot command failed")
+      }
       it("solution tree can be displayed") {
-        Console.withOut(new ByteArrayOutputStream()) {
+        //Console.withOut(new ByteArrayOutputStream()) {
+        Console.out.println("Displaying solutions to backtracking puzzle")
           solutionTree.display(Console.out)
-        }
+        Console.out.println("--DONE--")
+        //}
       }
 
       println("DONE H")
@@ -326,9 +351,9 @@ class SolverTest(factory: Puzzle => Solver) extends FunSpec with Matchers with G
           case NodeReached(node, depth) =>
             if (depth > maxDepth._2) maxDepth = (node, depth)
           //println(s"long puzzle solver reached: $node ($depth)")
-          case PuzzleSolved() =>
+          case PuzzleSolved =>
           //println(s"long puzzle solver          SOLVED!")
-          case DeadEndReached() =>
+          case DeadEndReached =>
           //println(s"long puzzle solver          DEAD END")
         }
       }
@@ -367,9 +392,9 @@ class SolverTest(factory: Puzzle => Solver) extends FunSpec with Matchers with G
           case NodeReached(node, depth) =>
             if (depth > maxDepth._2) maxDepth = (node, depth)
           //println(s"long puzzle solver reached: $node ($depth)")
-          case PuzzleSolved() =>
+          case PuzzleSolved =>
           //println(s"long puzzle solver          SOLVED!")
-          case DeadEndReached() =>
+          case DeadEndReached =>
           //println(s"long puzzle solver          DEAD END")
         }
       }
@@ -426,7 +451,7 @@ class SolverTest(factory: Puzzle => Solver) extends FunSpec with Matchers with G
 //            numSolutions += 1
 //            if (numSolutions % 10000 == 0) println(s"$numSolutions for scale-test puzzle")
 //            //println(s"long puzzle solver          SOLVED!")
-//          case DeadEndReached() =>
+//          case DeadEndReached =>
 //            //println(s"long puzzle solver          DEAD END")
 //        }
 //      }

@@ -50,6 +50,9 @@ class Puzzle(anyNode: Node, val name: String) extends Serializable {
 
   override def toString = s"Puzzle(nodes:$size ents:${entities.size} players:${players.size}})"
 
+  /**
+    * Generate 'dot' graph description
+    */
   def writeDot(printStream: PrintStream) {
     printStream.println(s"digraph $name {")
         printStream.println("  START [color=green, shape=diamond]")
@@ -63,17 +66,19 @@ class Puzzle(anyNode: Node, val name: String) extends Serializable {
             }
             n.to.foreach { nt =>
               printStream.println(s"  n${n.id} [shape=box];")
-              printStream.println(s"  n${n.id} -> n${nt.id} [color=black];")
+              printStream.println(s"  n${n.id} -> n${nt.id} [color=black, weight=1];")
             }
             n.reqs.foreach { r =>
               r.subjects.foreach {
                 case p: Player =>
-                  // Do not print player
+                  // Do not print player part of each requirement
                 case ent =>
-                  printStream.println(s"  n${n.id} -> ${ent.name}_${ent.id};")
-                  val bgColor = ent.initialColor.toHex
+                  val name = s"${ent.name}_${ent.id}"
+                  printStream.println(s"  n${n.id} -> $name [dir=none, weight=2];")
+                  val bgColor = ent.initialColor.lightenToHex
                   val textColor = if (ent.initialColor == Color.BLACK) "white" else "black"
-                  printStream.println(s"""  ${ent.name}_${ent.id} [shape=ellipse,style=filled,fillcolor="$bgColor",textcolor="$textColor"];""")
+                  printStream.println(s"""  $name [shape=ellipse,style=filled,fillcolor="$bgColor",textcolor="$textColor"];""")
+                  //printStream.println(s"""  {rank=same; $name; n${n.id}}""")
               }
               r match {
                 case req: ReqNoInteraction =>
@@ -82,14 +87,14 @@ class Puzzle(anyNode: Node, val name: String) extends Serializable {
                   else if (req.b.isInstanceOf[Player])
                     printStream.println(s"""  ${req.a.name}_${req.a.id} [label="${req.a.name}_${req.a.id} !~ PLAYER"];""")
                   else
-                    printStream.println(s"""  ${req.a.name}_${req.a.id} -> ${req.b.name}_${req.b.id} [dir=none,label="!~"];""")
+                    printStream.println(s"""  ${req.a.name}_${req.a.id} -> ${req.b.name}_${req.b.id} [dir=both, style=dotted, label="!~"];""")
                 case req: ReqInteraction =>
                   if (req.a.isInstanceOf[Player])
                     printStream.println(s"""  ${req.b.name}_${req.b.id} [label="${req.b.name}_${req.b.id} ~ PLAYER"];""")
                   else if (req.b.isInstanceOf[Player])
                     printStream.println(s"""  ${req.a.name}_${req.a.id} [label="${req.a.name}_${req.a.id} ~ PLAYER"];""")
                   else
-                    printStream.println(s"""  ${req.a.name}_${req.a.id} -> ${req.b.name}_${req.b.id} [dir=none,label="~"];""")
+                    printStream.println(s"""  ${req.a.name}_${req.a.id} -> ${req.b.name}_${req.b.id} [dir=both, style=dotted, label="~"];""")
                 case req =>
                   // Don't know about this interaction interact
                   Console.err.println("Don't know how to print unknown interaction type: " + req)
@@ -99,19 +104,23 @@ class Puzzle(anyNode: Node, val name: String) extends Serializable {
               case p: Player =>
               case ent: Entity =>
                 printStream.println(s"  n${n.id} -> ${ent.name}_${ent.id};")
-                val bgColor = ent.initialColor.toHex
+                val bgColor = ent.initialColor.lightenToHex
                 val textColor = if (ent.initialColor == Color.BLACK) "white" else "black"
                 printStream.println(s"""  ${ent.name}_${ent.id} [shape=ellipse,style=filled,fillcolor="$bgColor",textcolor="$textColor"];""")
             }*/
             n.contents.foreach { inv =>
-              printStream.println(s"  n${n.id} -> inv_${inv.toString}")
-              val bgColor = inv.toHex
+              val name = s"inv_${inv.toString}"
+              printStream.println(s"  n${n.id} -> $name [dir=none, style=dotted, weight=2];")
+              val bgColor = inv.lightenToHex
               val textColor = if (inv == Color.BLACK) "white" else "black"
-              printStream.println(s"""  inv_${inv.toString} [shape=invhouse,style=filled;fillcolor="$bgColor",textcolor=$textColor];""")
+              printStream.println(s"""  $name [shape=invhouse,style=filled;fillcolor="$bgColor",textcolor=$textColor];""")
+              //printStream.println(s"""  {rank=same; $name; n${n.id}}""")
             }
             n.switches.foreach { sw =>
-              printStream.println(s"  n${n.id} -> sw_${sw.toString}")
-              printStream.println(s"  sw_${sw.toString} [shape=triangle];")
+              val name = s"sw_${sw.toString}"
+              printStream.println(s"  n${n.id} -> $name [dir=none, weight=2];")
+              printStream.println(s"  $name [shape=triangle];")
+              //printStream.println(s"""  {rank=same; $name; n${n.id}}""")
             }
             true
             }

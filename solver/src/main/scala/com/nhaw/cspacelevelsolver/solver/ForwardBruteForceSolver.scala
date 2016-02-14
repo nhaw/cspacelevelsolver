@@ -12,12 +12,13 @@ case class ForwardBruteForceSolver(puzzle: Puzzle) extends Solver(puzzle) {
 
   def solve(tracer: Tracer): ActionTreeNode = {
     // Check that this puzzle can be started
-    val tp = new TransitionPossibilities(null, puzzle.startNode.get, immutable.Seq[Color](), puzzle.initialState.world)
+    val startNode = puzzle.startNode.get
+    val tp = new TransitionPossibilities(null, startNode, immutable.Seq[Color](), puzzle.initialState.world)
     if (tp.isDeadEnd) {
-      if (tracer != null) { tracer(DeadEndReached()) } // dead end before first node
-      ActionTreeNode(RootAction(), immutable.Seq[ActionTreeNode]())
+      if (tracer != null) { tracer(DeadEndReached) } // dead end before first node
+      ActionTreeNode(RootAction(), startNode, immutable.Seq[ActionTreeNode]())
     } else {
-      ActionTreeNode(RootAction(), _solve(tracer, 0, puzzle.startNode.get, puzzle.initialState, immutable.HashSet[Node]()))
+      ActionTreeNode(RootAction(), startNode, _solve(tracer, 0, puzzle.startNode.get, puzzle.initialState, immutable.HashSet[Node]()))
     }
   }
 
@@ -37,25 +38,26 @@ case class ForwardBruteForceSolver(puzzle: Puzzle) extends Solver(puzzle) {
     if (tracer != null) { tracer(NodeReached(n, depth))}
     n match {
       case n: EndNode => {
-        if (tracer != null) { tracer(PuzzleSolved())}
-        immutable.Seq[ActionTreeNode](ActionTreeNode(EndAction(), immutable.Seq[ActionTreeNode]()))
+        if (tracer != null) { tracer(PuzzleSolved)}
+        immutable.Seq[ActionTreeNode](ActionTreeNode(EndAction(), n, immutable.Seq[ActionTreeNode]()))
       }
       case n => {
         assume(n.switches.isEmpty, "Puzzle was thought to contain no switches")
 
         // Pick up items
+        // TODO: Allow selective item pickup if inventory is limited in size
         val newInventory = st.inventory ++ n.contents
+        if (tracer != null) { n.contents.foreach(item => tracer(InventoryPickup(item))) }
 
         // History is erased for the purpose of further recursion once something is picked up
         val newOffLimits = { if (n.contents.isEmpty) offLimits
                              else immutable.HashSet[Node]()
                            } + n
+        // TODO: Also reset history on actions where switches are thrown or world events take place
 
         val newState = PuzzleState(newInventory, st.world)
 
-        // TODO: reset history on actions where switches are thrown or world events take place
-
-        val possibleNextNodes = n.to.filter(!offLimits.contains(_)) // reject nodes already in histories to prevent cycles
+        val possibleNextNodes = n.to.filter(!newOffLimits.contains(_)) // reject nodes already in histories to prevent cycles
         val tps = possibleNextNodes.map { to =>
           val tp = new TransitionPossibilities(n, to, newInventory, st.world)
           assert(tp.entryProblems.nonEmpty || tp.validActions.nonEmpty,
@@ -68,22 +70,27 @@ case class ForwardBruteForceSolver(puzzle: Puzzle) extends Solver(puzzle) {
           if (tp._1.isPassable) {
             true
           } else {
-            NoTransitionPossible(tp._2)
+            if (tracer != null) { tracer(TransitionImpossible(tp._2, "")) }
             false
           }
-        } == 0) { if (tracer != null) { tracer(DeadEndReached()) } }
+        } == 0) { if (tracer != null) { tracer(DeadEndReached) } }
 
-        tps.flatMap { case (tp: TransitionPossibilities, to:Node) =>
-          // Recursively solve
-          tp.validActions.flatMap { act =>
-            val subSolutions = _solve(tracer, depth+1, to, act.resultState(newState), newOffLimits)
-            if (subSolutions.nonEmpty)
-              Seq[ActionTreeNode](ActionTreeNode(act, subSolutions))
-            else
-              Seq[ActionTreeNode]()
+        val actions =
+          tps.flatMap { case (tp: TransitionPossibilities, to:Node) =>
+            // Recursively solve
+            tp.validActions.flatMap { act =>
+              val subSolutions = _solve(tracer, depth+1, to, act.resultState(newState), newOffLimits)
+              if (subSolutions.nonEmpty)
+                Seq[ActionTreeNode](ActionTreeNode(act, to, subSolutions))
+              else
+                Seq[ActionTreeNode]()
+            }
           }
-        }.to[immutable.Seq]
-      }
+
+        // Apply each item pickup before the recursive solutions. This is awkward due to the recursion.
+        // TODO: Allow selective item pickup (see comments earlier in this function regarding this). This will make pickup-choice a sensibly-recursive action
+        n.contents.foldLeft(actions){case (a,item) => Seq[ActionTreeNode](ActionTreeNode(PickupAction(item), n, a))}
+      }.to[immutable.Seq]
     }
   }
 }

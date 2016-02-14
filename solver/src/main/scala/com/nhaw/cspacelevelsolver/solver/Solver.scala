@@ -1,5 +1,6 @@
 package com.nhaw.cspacelevelsolver.solver
 
+import com.nhaw.cspacelevelsolver.color.Color
 import com.nhaw.cspacelevelsolver.puzzle._
 
 import collection._
@@ -16,27 +17,28 @@ case class NodeReached(node: Node, depth: Int) extends SolverEvent
  * The puzzle has been solved. The Node at which the end of the puzzle has been reached is the most recent NodeReached
  * object
  */
-case class PuzzleSolved() extends SolverEvent
+case object PuzzleSolved extends SolverEvent
 
 /**
  * No transition to this node from the previous node (indicated by the most recent NodeReached object)
  */
-case class NoTransitionPossible(node: Node) extends SolverEvent
+case class TransitionImpossible(node: Node, reason: String) extends SolverEvent
 
 /**
- * No possible transitions can be made to get out of a given node. The node is indicated by the most revent NodeReached
+ * No possible transitions can be made to get out of a given node. The node is indicated by the most recent NodeReached
  * object
  */
-case class DeadEndReached() extends SolverEvent
+case object DeadEndReached extends SolverEvent
+
+/**
+ * An items was added to the inventory
+ */
+case class InventoryPickup(item: Color) extends SolverEvent
+
 
 //case class Cycle() extends SolverEvent
 
-
-object CountingTracer {
-  def apply() = new CountingTracer
-}
-
-class CountingTracer extends Function[SolverEvent,Unit] {
+case class CountingTracer() extends Function[SolverEvent,Unit] {
   private[this] var _nodesReached = 0
   private[this] var _solutions = 0
   private[this] var _deadEnds = 0
@@ -50,8 +52,11 @@ class CountingTracer extends Function[SolverEvent,Unit] {
   def apply(arg: SolverEvent): Unit = {
     arg match {
       case NodeReached(node, depth) => _nodesReached += 1
-      case PuzzleSolved() => _solutions += 1
-      case DeadEndReached() => _deadEnds += 1
+      case PuzzleSolved => _solutions += 1
+      case DeadEndReached => _deadEnds += 1
+      case InventoryPickup(color) =>
+      case TransitionImpossible(node, reason) =>
+      case evt: SolverEvent => // Other
     }
   }
 }
