@@ -7,7 +7,7 @@ import collection._
 import scala.collection.mutable.ListBuffer
 
 private[this] object TransitionPossibilities {
-  def problemsFromRequirements(to: Node, es: Requirement.EntityStates) = to.reqs.filter(!_.satisfied(es))
+  def problemsFromRequirements(link: NodeLink, es: Requirement.EntityStates) = (link.reqs ++ link.dest.reqs).filter(!_.satisfied(es))
   def subjectsFromProblems(problems: Seq[Requirement]) = problems.flatMap(_.subjects).toSet
 
   /**
@@ -18,17 +18,16 @@ private[this] object TransitionPossibilities {
 
 /**
  * Possible transitions from one Node to the
- * @param from Node which the player is leaving. May be null.
- * @param to Node to which player may travel. It is assumed that this node is topologically adjacent to the node from
- *           which the player is leaving.
+ * @param link Link through which player may travel. It is assumed that this node is topologically adjacent to the node
+ *             from which the player is leaving.
  */
-private[solver] class TransitionPossibilities(val from: Node, val to: Node,
+private[solver] class TransitionPossibilities(val link: NodeLink,
                                               val inventory: immutable.Seq[Color],
                                               val entityStates: Requirement.EntityStates)
 {
   import TransitionPossibilities._
 
-  val entryProblems = problemsFromRequirements(to, entityStates)
+  val entryProblems = problemsFromRequirements(link, entityStates)
   val RequirementTypes = entryProblems.isEmpty
   val problemSubjects: Requirement.EntitySet = subjectsFromProblems(entryProblems)
 
@@ -39,7 +38,8 @@ private[solver] class TransitionPossibilities(val from: Node, val to: Node,
                                         effectedEnts: Set[Entity],
                                         compoundAction: CompoundColorChangeAction, remainingInventory: List[Color]): List[Action] = {
     //subjectsFromProblems(currentProblems).foreach { ent => // NOTE: Entities are reiterated because problem-list changes
-    to.reqs.flatMap(_.subjects).toSet.toList.filter(!effectedEnts.contains(_)).foldLeft(List[Action]()) {
+    val reqs = link.reqs ++ link.dest.reqs
+    reqs.flatMap(_.subjects).toSet.toList.filter(!effectedEnts.contains(_)).foldLeft(List[Action]()) {
       (actions: List[Action], ent: Entity) => {
         //println(s"    testEnt:${ent.toString} problems:${currentProblems.size} actions:${compoundAction.actions.size} inv:${remainingInventory.mkString(",")} ")
         val newActions: List[Action] = {
@@ -51,7 +51,7 @@ private[solver] class TransitionPossibilities(val from: Node, val to: Node,
               Nil
             } else {
               val newEntityStates = currentEntityStates + ((ent, currentEntityStates(ent) withColor inventoryColor))
-              val newProblems = problemsFromRequirements(to, newEntityStates)
+              val newProblems = problemsFromRequirements(link, newEntityStates)
               val action = ColorChangeAction(inventoryColor, ent)
               if (newProblems.isEmpty) {
                 // TODO: Include superfluous options in the solution if requested. It's useful to know how many solutions there actually are

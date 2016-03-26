@@ -58,6 +58,7 @@ class PuzzlePrinter {
     println(s"Printing: $puzzleName")
 
     println("This puzzle is")
-    Node.print(puzzles(puzzleName).startNode.get)
+    assert(puzzles(puzzleName).startNodeLink.get.src == null)
+    Node.print(puzzles(puzzleName).startNodeLink.get.dest)
   }
 }

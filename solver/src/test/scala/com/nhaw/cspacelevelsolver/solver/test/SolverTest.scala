@@ -144,7 +144,7 @@ class SolverTest(factory: Puzzle => Solver) extends FunSpec with Matchers with G
       val player = Entity.PLAYER(Color.GREEN)
       val endNB = NodeBuilder().setEnd()
       val definition = NodeBuilder(ReqInteraction(player, Entity.PLATFORM(Color.GREEN))).setStart()
-      definition >* NodeBuilderSequence(Seq(NodeBuilder(),
+      definition >* NodeBuilderGroup(Seq(NodeBuilder(),
                                         NodeBuilder())    ) >- endNB
       val topo = Node.build(definition)
       val puzzle = Puzzle(topo, "TrivialPuzzle")

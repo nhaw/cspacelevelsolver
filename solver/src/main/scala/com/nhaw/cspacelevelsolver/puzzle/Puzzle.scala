@@ -20,8 +20,9 @@ class Puzzle(anyNode: Node, val name: String) extends Serializable {
   assert(Puzzle.validName(name), s"""Invalid puzzle name "$name"""")
 
   val startNode = Node.findStart(anyNode)
+  val startNodeLink = startNode.map(n => NodeLink(null, n, Seq()))
   val endNodes = Node.findEnds(anyNode)
-  val valid = startNode.isDefined && endNodes.nonEmpty
+  val valid = startNodeLink.isDefined && endNodes.nonEmpty
   val (entities, pickups, switches, size) = {
     var entitiesSet = immutable.Set[Entity]()
     var pickupSet = immutable.Set[Color]()
@@ -43,7 +44,7 @@ class Puzzle(anyNode: Node, val name: String) extends Serializable {
   val initialState: PuzzleState = new PuzzleState(initialInventory, initialColors)
 
   def assertValid() {
-    if (startNode.isEmpty) throw new IllegalArgumentException("No start node found")
+    if (startNodeLink.isEmpty) throw new IllegalArgumentException("No start node found")
     if (endNodes.isEmpty) throw new IllegalArgumentException("No end nodes found")
     assert(valid, "Invalid for unlisted reason")
   }
@@ -57,8 +58,8 @@ class Puzzle(anyNode: Node, val name: String) extends Serializable {
     printStream.println(s"digraph $name {")
         printStream.println("  START [color=green, shape=diamond]")
         printStream.println("  END [color=green, shape=diamond]")
-        startNode.foreach { sn =>
-          Node.walk(sn, n => {
+        startNodeLink.foreach { snl =>
+          Node.walk(snl.dest, n => {
             n match {
               case startNode: StartNode => printStream.println(s"  START -> n${n.id};")
               case endNode: EndNode => printStream.println(s"  n${n.id} -> END;")
@@ -66,7 +67,7 @@ class Puzzle(anyNode: Node, val name: String) extends Serializable {
             }
             n.to.foreach { nt =>
               printStream.println(s"  n${n.id} [shape=box];")
-              printStream.println(s"  n${n.id} -> n${nt.id} [color=black, weight=1];")
+              printStream.println(s"  n${n.id} -> n${nt.dest.id} [color=black, weight=1];")
             }
             n.reqs.foreach { r =>
               r.subjects.foreach {

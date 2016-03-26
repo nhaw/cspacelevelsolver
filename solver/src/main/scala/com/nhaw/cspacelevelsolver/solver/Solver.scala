@@ -8,6 +8,12 @@ import collection._
 trait SolverEvent
 
 /**
+  * A node has been reached in a possible solution path. This is counted once for each node and unique path leading up to
+  * that node, regardless of whether it leads to a solution or not
+  */
+case class LinkTraversed(link: NodeLink, depth: Int) extends SolverEvent
+
+/**
  * A node has been reached in a possible solution path. This is counted once for each node and unique path leading up to
  * that node, regardless of whether it leads to a solution or not
  */
@@ -22,7 +28,7 @@ case object PuzzleSolved extends SolverEvent
 /**
  * No transition to this node from the previous node (indicated by the most recent NodeReached object)
  */
-case class TransitionImpossible(node: Node, reason: String) extends SolverEvent
+case class TransitionImpossible(link: NodeLink, reason: String) extends SolverEvent
 
 /**
  * No possible transitions can be made to get out of a given node. The node is indicated by the most recent NodeReached

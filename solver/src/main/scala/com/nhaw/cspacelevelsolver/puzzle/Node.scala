@@ -6,8 +6,6 @@ package com.nhaw.cspacelevelsolver.puzzle
 
 import java.io.{PrintStream, OutputStream}
 
-import com.nhaw.cspacelevelsolver.color.Color
-
 import collection._
 
 object Node {
@@ -22,6 +20,11 @@ object Node {
     val visited = mutable.HashSet[Node]()
     _walk(n, fn, visited)
   }
+
+  private[this] def _walk(nl: NodeLink, fn: Node=>Boolean, visited: mutable.HashSet[Node]): Boolean = {
+    _walk(nl.dest, fn, visited)
+  }
+
   private[this] def _walk(n: Node, fn: Node=>Boolean, visited: mutable.HashSet[Node]): Boolean = {
     if (visited contains n) {
       // Already hit
@@ -55,16 +58,16 @@ object Node {
   def print(n:Node) { walk(n, x => {println(x); true}) }
 
   def build(nb:NodeBuilder) = { nb.make }
-  def build(nbs:NodeBuilderSequence) = { assert(nbs.elements.nonEmpty); nbs.elements.head.make }
+  def build(nbs:NodeBuilderGroup) = { assert(nbs.elements.nonEmpty); nbs.elements.head.make }
 }
 
 class Node(nb: NodeBuilder) {
   NodeBuilder.nodes(nb) = this; // Prevent cycles
 
   val id = nb.id
-  val from: Seq[Node] = nb.from.map(_.make)
-  val to: Seq[Node] = nb.to.map(_.make)
-  val reqs: Seq[Requirement] = nb.reqs
+  val from: Seq[NodeLink] = nb.from.map(_.make)
+  val to: Seq[NodeLink] = nb.to.map(_.make)
+  val reqs: Seq[Requirement] = nb.occupyReqs
   val contents = nb.contents.toList
   val switches = nb.switches.toList
 
@@ -72,8 +75,8 @@ class Node(nb: NodeBuilder) {
 
   override def toString = {
     def listify(x:Seq[Node]) = x.map(_.id).mkString("[",",","]")
-    val froms = listify(from)
-    val tos = listify(to)
+    val froms = listify(from.map(_.src))
+    val tos = listify(to.map(_.dest))
     val reqrepr = reqs.mkString("["," & ","]")
     val contentsrepr = if (contents.isEmpty) "none" else contents.mkString("[",",","]")
     s"<$nodeType:$id from:$froms to:$tos reqs:$reqs contents:$contentsrepr>"
